@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+:root {
+  --font-geist: var(--font-geist);
+}
+
+body {
+  font-family: var(--font-geist, system-ui, sans-serif);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #374151 transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #374151;
+  border-radius: 3px;
+}
