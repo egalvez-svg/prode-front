@@ -1,6 +1,7 @@
 export type MatchStatus = 'SCHEDULED' | 'IN_PLAY' | 'FINISHED' | 'POSTPONED';
 export type MatchStage = 'GROUP_STAGE' | 'ROUND_OF_16' | 'QUARTER_FINALS' | 'SEMI_FINALS' | 'THIRD_PLACE' | 'FINAL';
 export type UserRole = 'USER' | 'ADMIN';
+export type PrizeFase = 'GRUPOS' | 'ELIMINATORIA';
 
 export interface Match {
   id: number;
@@ -30,6 +31,9 @@ export interface User {
   email: string;
   name: string;
   roles: UserRole[];
+  accesoGrupos: boolean;
+  accesoEliminatoria: boolean;
+  activo: boolean;
   createdAt: string;
   bets: Bet[];
 }
@@ -50,7 +54,9 @@ export interface Prize {
   name: string;
   description: string;
   position: number;
+  fase?: PrizeFase | null;
   awardedTo: { id: number; name: string; email: string } | null;
+  awardedToUserId: number | null;
 }
 
 export interface InviteCode {
@@ -60,6 +66,8 @@ export interface InviteCode {
   usadoPor: { id: number; name: string; email: string } | null;
   creadoEn: string;
   creadoPor: number;
+  accesoGrupos: boolean;
+  accesoEliminatoria: boolean;
 }
 
 export interface AuthResponse {

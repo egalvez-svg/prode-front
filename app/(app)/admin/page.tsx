@@ -7,9 +7,9 @@ import { useEffect } from 'react';
 import {
   getAllUsers, getPrizes, getRankings,
   syncMatches, createPrize, awardPrize, deletePrize, updateUserRoles,
-  deleteUser, getInviteCodes, createInviteCode, deleteInviteCode
+  deleteUser, updateUserAcceso, getInviteCodes, createInviteCode, deleteInviteCode
 } from '@/lib/api';
-import type { InviteCode, User } from '@/types';
+import type { InviteCode, PrizeFase, User } from '@/types';
 
 export default function AdminPage() {
   const router = useRouter();
@@ -91,18 +91,18 @@ function SyncTab({ qc }: { qc: ReturnType<typeof useQueryClient> }) {
 }
 
 function PrizesTab({ qc }: { qc: ReturnType<typeof useQueryClient> }) {
-  const [form, setForm] = useState({ name: '', description: '', position: 1 });
+  const [form, setForm] = useState({ name: '', description: '', position: 1, fase: 'GRUPOS' as PrizeFase });
   const [awardForm, setAwardForm] = useState<{ prizeId: number; userId: string } | null>(null);
   const [formError, setFormError] = useState('');
 
-  const { data: prizes = [] } = useQuery({ queryKey: ['prizes'], queryFn: getPrizes });
+  const { data: prizes = [] } = useQuery({ queryKey: ['prizes'], queryFn: () => getPrizes() });
   const { data: rankings = [] } = useQuery({ queryKey: ['rankings'], queryFn: getRankings });
 
   const createMutation = useMutation({
-    mutationFn: () => createPrize(form.name, form.description, form.position),
+    mutationFn: () => createPrize(form.name, form.description, form.position, form.fase),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['prizes'] });
-      setForm({ name: '', description: '', position: 1 });
+      setForm({ name: '', description: '', position: 1, fase: 'GRUPOS' });
       setFormError('');
     },
     onError: (err: unknown) => {
@@ -131,12 +131,12 @@ function PrizesTab({ qc }: { qc: ReturnType<typeof useQueryClient> }) {
       {/* Create prize */}
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
         <h2 className="text-lg font-semibold text-white mb-4">Crear premio</h2>
-        <div className="grid sm:grid-cols-3 gap-4">
+        <div className="grid sm:grid-cols-2 gap-4">
           <input
             placeholder="Nombre (ej: Premio 1er lugar)"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="bg-slate-700/50 border border-slate-600 rounded-lg px-4 py-2.5 text-white placeholder-slate-400 focus:outline-none focus:border-yellow-500 transition sm:col-span-1"
+            className="bg-slate-700/50 border border-slate-600 rounded-lg px-4 py-2.5 text-white placeholder-slate-400 focus:outline-none focus:border-yellow-500 transition"
           />
           <input
             placeholder="Descripción (ej: $50.000 en efectivo)"
@@ -144,6 +144,14 @@ function PrizesTab({ qc }: { qc: ReturnType<typeof useQueryClient> }) {
             onChange={(e) => setForm({ ...form, description: e.target.value })}
             className="bg-slate-700/50 border border-slate-600 rounded-lg px-4 py-2.5 text-white placeholder-slate-400 focus:outline-none focus:border-yellow-500 transition"
           />
+          <select
+            value={form.fase}
+            onChange={(e) => setForm({ ...form, fase: e.target.value as PrizeFase })}
+            className="bg-slate-700/50 border border-slate-600 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-yellow-500 transition"
+          >
+            <option value="GRUPOS">Fase de Grupos</option>
+            <option value="ELIMINATORIA">Fase Eliminatoria</option>
+          </select>
           <div className="flex gap-2">
             <input
               type="number"
@@ -173,9 +181,16 @@ function PrizesTab({ qc }: { qc: ReturnType<typeof useQueryClient> }) {
           <div key={prize.id} className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-yellow-400 font-bold text-sm">#{prize.position}</span>
                   <span className="text-white font-semibold">{prize.name}</span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full border ${
+                    prize.fase === 'GRUPOS'
+                      ? 'text-green-400 bg-green-900/20 border-green-700/30'
+                      : 'text-purple-400 bg-purple-900/20 border-purple-700/30'
+                  }`}>
+                    {prize.fase === 'GRUPOS' ? 'Grupos' : 'Eliminatoria'}
+                  </span>
                 </div>
                 <p className="text-slate-300 text-sm mt-0.5">{prize.description}</p>
                 {prize.awardedTo ? (
@@ -230,6 +245,33 @@ function PrizesTab({ qc }: { qc: ReturnType<typeof useQueryClient> }) {
   );
 }
 
+function AccessToggle({ on, onChange, disabled, color, label }: {
+  on: boolean;
+  onChange: () => void;
+  disabled?: boolean;
+  color: 'green' | 'purple';
+  label: string;
+}) {
+  return (
+    <button
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      onClick={onChange}
+      disabled={disabled}
+      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 disabled:opacity-40 disabled:cursor-not-allowed ${
+        on
+          ? color === 'green' ? 'bg-green-500' : 'bg-purple-500'
+          : 'bg-slate-600'
+      }`}
+    >
+      <span className={`pointer-events-none block h-4 w-4 rounded-full bg-white shadow transition-transform ${
+        on ? 'translate-x-4' : 'translate-x-0.5'
+      }`} />
+    </button>
+  );
+}
+
 function UsersTab() {
   const { user: currentUser } = useAuthStore();
   const qc = useQueryClient();
@@ -250,6 +292,8 @@ function UsersTab() {
     },
   });
 
+  const [pendingToggles, setPendingToggles] = useState<Set<string>>(new Set());
+
   function toggleAdmin(u: User) {
     const isCurrentlyAdmin = u.roles.includes('ADMIN');
     const newRoles = isCurrentlyAdmin
@@ -258,93 +302,150 @@ function UsersTab() {
     roleMutation.mutate({ userId: u.id, roles: newRoles });
   }
 
+  async function toggleAcceso(u: User, field: 'accesoGrupos' | 'accesoEliminatoria') {
+    const key = `${u.id}:${field}`;
+    if (pendingToggles.has(key)) return;
+    setPendingToggles(prev => new Set([...prev, key]));
+    try {
+      const updated = await updateUserAcceso(
+        u.id,
+        field === 'accesoGrupos' ? !u.accesoGrupos : !!u.accesoGrupos,
+        field === 'accesoEliminatoria' ? !u.accesoEliminatoria : !!u.accesoEliminatoria,
+      );
+      qc.setQueryData<User[]>(['users'], (old = []) =>
+        old.map(usr =>
+          usr.id === u.id
+            ? { ...usr, accesoGrupos: updated.accesoGrupos, accesoEliminatoria: updated.accesoEliminatoria }
+            : usr
+        )
+      );
+    } finally {
+      setPendingToggles(prev => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    }
+  }
+
   return (
     <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
-      <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-700/50">
-        <span>Usuario</span>
-        <span>Roles</span>
-        <span></span>
-        <span>Registrado</span>
-      </div>
-      {isLoading ? (
-        <div className="text-center py-8 text-slate-500">Cargando...</div>
-      ) : (
-        <div className="divide-y divide-slate-700/30">
-          {users.map((u) => (
-            <div key={u.id} className="grid grid-cols-[1fr_auto_auto_auto] gap-4 items-center px-5 py-3">
-              <div>
-                <p className="text-white font-medium text-sm">{u.name}</p>
-                <p className="text-slate-400 text-xs">{u.email}</p>
-              </div>
-              <div className="flex gap-1">
-                {u.roles.map((role) => (
-                  <span key={role} className={`text-xs px-2 py-1 rounded-full border ${
-                    role === 'ADMIN'
-                      ? 'text-yellow-400 bg-yellow-900/30 border-yellow-700/30'
-                      : 'text-slate-400 bg-slate-700/30 border-slate-600/30'
-                  }`}>
-                    {role}
-                  </span>
-                ))}
-              </div>
-              <div className="flex gap-2 items-center">
-                <button
-                  onClick={() => toggleAdmin(u)}
-                  disabled={u.id === currentUser?.id || roleMutation.isPending}
-                  title={u.id === currentUser?.id ? 'No puedes modificar tu propio rol' : ''}
-                  className={`text-xs px-3 py-1.5 rounded-lg border transition disabled:opacity-40 disabled:cursor-not-allowed ${
-                    u.roles.includes('ADMIN')
-                      ? 'text-orange-400 bg-orange-900/20 border-orange-700/30 hover:bg-orange-900/40'
-                      : 'text-green-400 bg-green-900/20 border-green-700/30 hover:bg-green-900/40'
-                  }`}
-                >
-                  {u.roles.includes('ADMIN') ? 'Quitar Admin' : 'Hacer Admin'}
-                </button>
-                {confirmDelete === u.id ? (
-                  <div className="flex gap-1 items-center">
-                    <span className="text-red-400 text-xs">¿Confirmar?</span>
-                    <button
-                      onClick={() => deleteMutation.mutate(u.id)}
-                      disabled={deleteMutation.isPending}
-                      className="text-xs px-2 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white transition disabled:opacity-50"
-                    >
-                      Sí
-                    </button>
-                    <button
-                      onClick={() => setConfirmDelete(null)}
-                      className="text-xs px-2 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition"
-                    >
-                      No
-                    </button>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[680px] text-sm border-collapse">
+          <thead>
+            <tr className="border-b border-slate-700/50">
+              <th scope="col" className="text-left px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Usuario</th>
+              <th scope="col" className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap">Registrado</th>
+              <th scope="col" className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Roles</th>
+              <th scope="col" className="text-center px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Grupos</th>
+              <th scope="col" className="text-center px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Eliminatoria</th>
+              <th scope="col" className="px-5 py-3" />
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-700/30">
+            {isLoading ? (
+              <tr>
+                <td colSpan={6} className="text-center py-10 text-slate-500">Cargando...</td>
+              </tr>
+            ) : users.map((u) => (
+              <tr key={u.id} className="hover:bg-slate-700/20 transition-colors">
+                <td className="px-5 py-3">
+                  <p className="text-white font-medium">{u.name}</p>
+                  <p className="text-slate-400 text-xs">{u.email}</p>
+                </td>
+                <td className="px-4 py-3 text-slate-400 text-xs tabular-nums whitespace-nowrap">
+                  {new Date(u.createdAt).toLocaleDateString('es-CL')}
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex gap-1 flex-wrap">
+                    {u.roles.map((role) => (
+                      <span key={role} className={`text-xs px-2 py-0.5 rounded-full border ${
+                        role === 'ADMIN'
+                          ? 'text-yellow-400 bg-yellow-900/30 border-yellow-700/30'
+                          : 'text-slate-400 bg-slate-700/30 border-slate-600/30'
+                      }`}>
+                        {role}
+                      </span>
+                    ))}
                   </div>
-                ) : (
-                  <button
-                    onClick={() => setConfirmDelete(u.id)}
-                    disabled={u.id === currentUser?.id}
-                    title={u.id === currentUser?.id ? 'No puedes eliminarte a ti mismo' : ''}
-                    className="text-xs px-3 py-1.5 rounded-lg border text-red-400 bg-red-900/20 border-red-700/30 hover:bg-red-900/40 transition disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    Eliminar
-                  </button>
-                )}
-              </div>
-              <span className="text-slate-400 text-xs">
-                {new Date(u.createdAt).toLocaleDateString('es-CL')}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
+                </td>
+                <td className="px-4 py-3 text-center">
+                  <AccessToggle
+                    on={u.accesoGrupos}
+                    onChange={() => toggleAcceso(u, 'accesoGrupos')}
+                    disabled={pendingToggles.has(`${u.id}:accesoGrupos`)}
+                    color="green"
+                    label={`Acceso fase grupos para ${u.name}`}
+                  />
+                </td>
+                <td className="px-4 py-3 text-center">
+                  <AccessToggle
+                    on={u.accesoEliminatoria}
+                    onChange={() => toggleAcceso(u, 'accesoEliminatoria')}
+                    disabled={pendingToggles.has(`${u.id}:accesoEliminatoria`)}
+                    color="purple"
+                    label={`Acceso eliminatoria para ${u.name}`}
+                  />
+                </td>
+                <td className="px-5 py-3">
+                  <div className="flex gap-2 items-center justify-end">
+                    <button
+                      onClick={() => toggleAdmin(u)}
+                      disabled={u.id === currentUser?.id || roleMutation.isPending}
+                      aria-label={u.roles.includes('ADMIN') ? `Quitar admin a ${u.name}` : `Hacer admin a ${u.name}`}
+                      className={`text-xs px-3 py-1.5 rounded-lg border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-900 disabled:opacity-40 disabled:cursor-not-allowed ${
+                        u.roles.includes('ADMIN')
+                          ? 'text-orange-400 bg-orange-900/20 border-orange-700/30 hover:bg-orange-900/40'
+                          : 'text-green-400 bg-green-900/20 border-green-700/30 hover:bg-green-900/40'
+                      }`}
+                    >
+                      {u.roles.includes('ADMIN') ? 'Quitar Admin' : 'Hacer Admin'}
+                    </button>
+                    {confirmDelete === u.id ? (
+                      <div className="flex gap-1 items-center">
+                        <span className="text-red-400 text-xs">¿Confirmar?</span>
+                        <button
+                          onClick={() => deleteMutation.mutate(u.id)}
+                          disabled={deleteMutation.isPending}
+                          className="text-xs px-2 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-50"
+                        >
+                          Sí
+                        </button>
+                        <button
+                          onClick={() => setConfirmDelete(null)}
+                          className="text-xs px-2 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500"
+                        >
+                          No
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmDelete(u.id)}
+                        disabled={u.id === currentUser?.id}
+                        aria-label={`Eliminar usuario ${u.name}`}
+                        className="text-xs px-3 py-1.5 rounded-lg border text-red-400 bg-red-900/20 border-red-700/30 hover:bg-red-900/40 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-1 focus-visible:ring-offset-slate-900 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Eliminar
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
 
 function InvitesTab({ qc }: { qc: ReturnType<typeof useQueryClient> }) {
   const [copied, setCopied] = useState<number | null>(null);
+  const [newAcceso, setNewAcceso] = useState({ grupos: false, eliminatoria: false });
   const { data: codes = [], isLoading } = useQuery({ queryKey: ['invite-codes'], queryFn: getInviteCodes });
 
   const createMutation = useMutation({
-    mutationFn: createInviteCode,
+    mutationFn: () => createInviteCode(newAcceso.grupos, newAcceso.eliminatoria),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['invite-codes'] }),
   });
 
@@ -362,18 +463,38 @@ function InvitesTab({ qc }: { qc: ReturnType<typeof useQueryClient> }) {
   return (
     <div className="space-y-4">
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-4">
           <div>
             <h2 className="text-lg font-semibold text-white">Códigos de invitación</h2>
             <p className="text-slate-400 text-sm mt-1">Genera un código y compártelo para que el usuario pueda registrarse.</p>
           </div>
-          <button
-            onClick={() => createMutation.mutate()}
-            disabled={createMutation.isPending}
-            className="flex-shrink-0 flex items-center gap-2 bg-yellow-600 hover:bg-yellow-500 disabled:opacity-50 text-white font-semibold px-4 py-2.5 rounded-lg transition"
-          >
-            {createMutation.isPending ? '⏳ Generando...' : '🔑 Generar código'}
-          </button>
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={newAcceso.grupos}
+                onChange={(e) => setNewAcceso({ ...newAcceso, grupos: e.target.checked })}
+                className="w-4 h-4 rounded accent-green-500"
+              />
+              <span className="text-slate-300 text-sm">Fase Grupos</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={newAcceso.eliminatoria}
+                onChange={(e) => setNewAcceso({ ...newAcceso, eliminatoria: e.target.checked })}
+                className="w-4 h-4 rounded accent-purple-500"
+              />
+              <span className="text-slate-300 text-sm">Eliminatoria</span>
+            </label>
+            <button
+              onClick={() => createMutation.mutate()}
+              disabled={createMutation.isPending || (!newAcceso.grupos && !newAcceso.eliminatoria)}
+              className="flex items-center gap-2 bg-yellow-600 hover:bg-yellow-500 disabled:opacity-50 text-white font-semibold px-4 py-2.5 rounded-lg transition"
+            >
+              {createMutation.isPending ? '⏳ Generando...' : '🔑 Generar código'}
+            </button>
+          </div>
         </div>
         {createMutation.isSuccess && createMutation.data && (
           <div className="mt-4 bg-green-500/10 border border-green-500/30 rounded-lg px-4 py-3 flex items-center justify-between gap-4">
@@ -397,9 +518,11 @@ function InvitesTab({ qc }: { qc: ReturnType<typeof useQueryClient> }) {
         <div className="text-center py-8 text-slate-500 text-sm">No hay códigos generados aún</div>
       ) : (
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
+          <div className="overflow-x-auto">
+          <div className="min-w-[560px]">
           <div className="grid grid-cols-[auto_1fr_auto_auto] gap-4 px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-700/50">
             <span>Código</span>
-            <span>Estado</span>
+            <span>Estado / Acceso</span>
             <span></span>
             <span>Creado</span>
           </div>
@@ -407,7 +530,7 @@ function InvitesTab({ qc }: { qc: ReturnType<typeof useQueryClient> }) {
             {codes.map((c) => (
               <div key={c.id} className="grid grid-cols-[auto_1fr_auto_auto] gap-4 items-center px-5 py-3">
                 <span className="font-mono text-white font-semibold tracking-wider text-sm">{c.code}</span>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   {c.usado ? (
                     <>
                       <span className="text-xs px-2 py-1 rounded-full border text-slate-400 bg-slate-700/30 border-slate-600/30">Usado</span>
@@ -415,6 +538,12 @@ function InvitesTab({ qc }: { qc: ReturnType<typeof useQueryClient> }) {
                     </>
                   ) : (
                     <span className="text-xs px-2 py-1 rounded-full border text-green-400 bg-green-900/20 border-green-700/30">Disponible</span>
+                  )}
+                  {c.accesoGrupos && (
+                    <span className="text-xs px-2 py-0.5 rounded-full border text-green-400 bg-green-900/20 border-green-700/30">Grupos</span>
+                  )}
+                  {c.accesoEliminatoria && (
+                    <span className="text-xs px-2 py-0.5 rounded-full border text-purple-400 bg-purple-900/20 border-purple-700/30">Eliminatoria</span>
                   )}
                 </div>
                 <div className="flex gap-2">
@@ -441,6 +570,8 @@ function InvitesTab({ qc }: { qc: ReturnType<typeof useQueryClient> }) {
                 </span>
               </div>
             ))}
+          </div>
+          </div>
           </div>
         </div>
       )}

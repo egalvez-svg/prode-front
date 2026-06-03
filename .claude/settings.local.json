@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx prisma generate)",
+      "Bash(grep -rn \"from ''@prisma/client''\" /c/NEST/club-cultivo/src --include=\"*.ts\")",
+      "Bash(Get-ChildItem -Path \"c:\\\\NEST\\\\prode\\\\src\\\\modules\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(npx prisma *)"
+    ]
+  }
+}

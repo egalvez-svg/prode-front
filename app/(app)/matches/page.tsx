@@ -7,6 +7,7 @@ import BetModal from '@/components/BetModal';
 import { format, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { formatSectionLabel } from '@/components/StageBadge';
+import { useAuthStore } from '@/store/authStore';
 
 const STATUS_TABS: { label: string; value: MatchStatus | 'ALL' }[] = [
   { label: 'Todos', value: 'ALL' },
@@ -25,6 +26,7 @@ const STATUS_LABELS: Record<string, { text: string; className: string }> = {
 export default function MatchesPage() {
   const [tab, setTab] = useState<MatchStatus | 'ALL'>('SCHEDULED');
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
+  const { user } = useAuthStore();
 
   const { data: matches = [], isLoading } = useQuery({
     queryKey: ['matches', tab],
@@ -42,7 +44,12 @@ export default function MatchesPage() {
     return acc;
   }, {});
 
-  const grouped = matches.reduce<Record<string, Match[]>>((acc, m) => {
+  const accessibleMatches = matches.filter((m) => {
+    if (m.stage === 'GROUP_STAGE') return user?.accesoGrupos ?? true;
+    return user?.accesoEliminatoria ?? true;
+  });
+
+  const grouped = accessibleMatches.reduce<Record<string, Match[]>>((acc, m) => {
     const key = m.group ?? m.stage;
     if (!acc[key]) acc[key] = [];
     acc[key].push(m);
@@ -76,7 +83,7 @@ export default function MatchesPage() {
 
       {isLoading ? (
         <div className="text-center py-16 text-slate-500">Cargando partidos...</div>
-      ) : matches.length === 0 ? (
+      ) : accessibleMatches.length === 0 ? (
         <div className="text-center py-16 text-slate-500">No hay partidos en esta categoría</div>
       ) : (
         Object.entries(grouped).map(([group, groupMatches]) => (
