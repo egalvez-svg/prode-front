@@ -1,6 +1,7 @@
 'use client';
 import { useQuery } from '@tanstack/react-query';
 import { getPrizes } from '@/lib/api';
+import type { Prize } from '@/types';
 
 const POSITION_ICONS = ['🥇', '🥈', '🥉', '🎖️'];
 const POSITION_STYLES = [
@@ -10,13 +11,68 @@ const POSITION_STYLES = [
   'from-slate-800/40 to-slate-700/20 border-slate-600/30',
 ];
 
+function PrizeCard({ prize }: { prize: Prize }) {
+  const idx = prize.position - 1;
+  const icon = POSITION_ICONS[idx] ?? '🏅';
+  const style = POSITION_STYLES[idx] ?? POSITION_STYLES[3];
+
+  return (
+    <div className={`bg-gradient-to-br ${style} border rounded-2xl p-6`}>
+      <div className="text-4xl mb-3">{icon}</div>
+      <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-1">
+        Puesto {prize.position}
+      </p>
+      <h3 className="text-lg font-bold text-white mb-1">{prize.name}</h3>
+      <p className="text-2xl font-black text-white mb-4">{prize.description}</p>
+
+      {prize.awardedTo ? (
+        <div className="bg-black/20 rounded-xl p-3">
+          <p className="text-xs text-slate-400 mb-1">🏆 Ganador</p>
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white font-bold text-sm">
+              {prize.awardedTo.name[0].toUpperCase()}
+            </div>
+            <div>
+              <p className="text-white font-semibold text-sm">{prize.awardedTo.name}</p>
+              <p className="text-slate-400 text-xs">{prize.awardedTo.email}</p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-black/20 rounded-xl p-3 flex items-center gap-2">
+          <span className="text-xl">⏳</span>
+          <p className="text-slate-400 text-sm">Pendiente de asignación</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FaseSection({ label, prizes }: { label: string; prizes: Prize[] }) {
+  if (prizes.length === 0) return null;
+  const sorted = [...prizes].sort((a, b) => a.position - b.position);
+  return (
+    <div className="space-y-4">
+      <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-700/50 pb-2">
+        {label}
+      </h2>
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+        {sorted.map((prize) => <PrizeCard key={prize.id} prize={prize} />)}
+      </div>
+    </div>
+  );
+}
+
 export default function PrizesPage() {
   const { data: prizes = [], isLoading } = useQuery({
     queryKey: ['prizes'],
-    queryFn: getPrizes,
+    queryFn: () => getPrizes(),
   });
 
   const sorted = [...prizes].sort((a, b) => a.position - b.position);
+  const hasFases = prizes.some((p) => p.fase);
+  const grupos = sorted.filter((p) => p.fase === 'GRUPOS');
+  const eliminatoria = sorted.filter((p) => p.fase === 'ELIMINATORIA');
 
   return (
     <div className="space-y-6">
@@ -32,44 +88,14 @@ export default function PrizesPage() {
           <div className="text-5xl mb-3">🎁</div>
           <p className="text-slate-400">Los premios serán anunciados próximamente</p>
         </div>
+      ) : hasFases ? (
+        <div className="space-y-8">
+          <FaseSection label="Fase de Grupos" prizes={grupos} />
+          <FaseSection label="Fase Eliminatoria" prizes={eliminatoria} />
+        </div>
       ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {sorted.map((prize) => {
-            const idx = prize.position - 1;
-            const icon = POSITION_ICONS[idx] ?? '🏅';
-            const style = POSITION_STYLES[idx] ?? POSITION_STYLES[3];
-
-            return (
-              <div key={prize.id} className={`bg-gradient-to-br ${style} border rounded-2xl p-6`}>
-                <div className="text-4xl mb-3">{icon}</div>
-                <p className="text-xs text-slate-400 font-medium uppercase tracking-wide mb-1">
-                  Puesto {prize.position}
-                </p>
-                <h3 className="text-lg font-bold text-white mb-1">{prize.name}</h3>
-                <p className="text-2xl font-black text-white mb-4">{prize.description}</p>
-
-                {prize.awardedTo ? (
-                  <div className="bg-black/20 rounded-xl p-3">
-                    <p className="text-xs text-slate-400 mb-1">🏆 Ganador</p>
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white font-bold text-sm">
-                        {prize.awardedTo.name[0].toUpperCase()}
-                      </div>
-                      <div>
-                        <p className="text-white font-semibold text-sm">{prize.awardedTo.name}</p>
-                        <p className="text-slate-400 text-xs">{prize.awardedTo.email}</p>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-black/20 rounded-xl p-3 flex items-center gap-2">
-                    <span className="text-xl">⏳</span>
-                    <p className="text-slate-400 text-sm">Pendiente de asignación</p>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+          {sorted.map((prize) => <PrizeCard key={prize.id} prize={prize} />)}
         </div>
       )}
 

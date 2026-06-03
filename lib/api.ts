@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { AuthResponse, Bet, InviteCode, Match, Prize, RankingEntry, User, UserRole } from '@/types';
+import type { AuthResponse, Bet, InviteCode, Match, Prize, PrizeFase, RankingEntry, User, UserRole } from '@/types';
 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api',
@@ -39,9 +39,13 @@ export const updateUserRoles = (userId: number, roles: UserRole[]) =>
 export const deleteUser = (userId: number) =>
   api.delete(`/users/${userId}`).then((r) => r.data);
 
+export const updateUserAcceso = (userId: number, accesoGrupos: boolean, accesoEliminatoria: boolean) =>
+  api.patch<User>(`/users/${userId}/acceso`, { accesoGrupos, accesoEliminatoria }).then((r) => r.data);
+
 // Invite codes
 export const getInviteCodes = () => api.get<InviteCode[]>('/invite-codes').then((r) => r.data);
-export const createInviteCode = () => api.post<InviteCode>('/invite-codes').then((r) => r.data);
+export const createInviteCode = (accesoGrupos: boolean, accesoEliminatoria: boolean) =>
+  api.post<InviteCode>('/invite-codes', { accesoGrupos, accesoEliminatoria }).then((r) => r.data);
 export const deleteInviteCode = (id: number) => api.delete(`/invite-codes/${id}`).then((r) => r.data);
 
 // Matches
@@ -72,11 +76,11 @@ export const getMyRanking = () =>
   api.get<RankingEntry>('/rankings/me').then((r) => r.data);
 
 // Prizes
-export const getPrizes = () =>
-  api.get<Prize[]>('/prizes').then((r) => r.data);
+export const getPrizes = (fase?: PrizeFase) =>
+  api.get<Prize[]>('/prizes', { params: fase ? { fase } : {} }).then((r) => r.data);
 
-export const createPrize = (name: string, description: string, position: number) =>
-  api.post<Prize>('/prizes', { name, description, position }).then((r) => r.data);
+export const createPrize = (name: string, description: string, position: number, fase: PrizeFase) =>
+  api.post<Prize>('/prizes', { name, description, position, fase }).then((r) => r.data);
 
 export const awardPrize = (prizeId: number, userId: number) =>
   api.patch<Prize>(`/prizes/${prizeId}/award`, { userId }).then((r) => r.data);
