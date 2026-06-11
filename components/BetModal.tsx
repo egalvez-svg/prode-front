@@ -68,11 +68,13 @@ export default function BetModal({ match, existingBet, onClose }: Props) {
           </p>
           {!canBet && (
             <p className="mt-2 text-xs text-red-400 font-medium">
-              {match.status !== 'SCHEDULED' ? '🔒 Apuestas cerradas' : '⏰ Cierre en menos de 30 min'}
+              {match.status !== 'SCHEDULED'
+                ? '🔒 Apuestas cerradas'
+                : '🔒 Las apuestas cierran 30 min antes del inicio'}
             </p>
           )}
           {canBet && minutesToMatch < 60 && (
-            <p className="mt-2 text-xs text-yellow-400">⚠️ Cierra en {Math.round(minutesToMatch)} min</p>
+            <p className="mt-2 text-xs text-yellow-400">⚠️ Cierra en {Math.round(minutesToMatch)} min · las apuestas cierran 30 min antes del inicio</p>
           )}
         </div>
 
