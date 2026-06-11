@@ -46,7 +46,7 @@ export default function RankingPage() {
       ) : (
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
           {/* Header */}
-          <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-4 px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-700/50">
+          <div className="grid grid-cols-[2rem_1fr_5rem_6rem_5rem] gap-4 px-5 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-700/50">
             <span>#</span>
             <span>Jugador</span>
             <span className="text-center hidden sm:block">Apuestas</span>
@@ -61,7 +61,7 @@ export default function RankingPage() {
               return (
                 <div
                   key={entry.id}
-                  className={`grid grid-cols-[auto_1fr_auto_auto_auto] gap-4 items-center px-5 py-4 transition ${
+                  className={`grid grid-cols-[2rem_1fr_5rem_6rem_5rem] gap-4 items-center px-5 py-4 transition ${
                     isMe ? 'bg-green-900/20' : 'hover:bg-slate-700/20'
                   }`}
                 >
