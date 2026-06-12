@@ -7,9 +7,13 @@ import { useEffect } from 'react';
 import {
   getAllUsers, getPrizes, getRankings,
   syncMatches, createPrize, awardPrize, deletePrize, updateUserRoles,
-  deleteUser, updateUserAcceso, getInviteCodes, createInviteCode, deleteInviteCode
+  deleteUser, updateUserAcceso, getInviteCodes, createInviteCode, deleteInviteCode,
+  getMatches, toggleMatchRanking,
 } from '@/lib/api';
-import type { InviteCode, PrizeFase, User } from '@/types';
+import type { InviteCode, Match, PrizeFase, User } from '@/types';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { formatSectionLabel } from '@/components/StageBadge';
 
 export default function AdminPage() {
   const router = useRouter();
@@ -20,7 +24,7 @@ export default function AdminPage() {
     if (user && !isAdmin()) router.push('/dashboard');
   }, [user, isAdmin, router]);
 
-  const [tab, setTab] = useState<'users' | 'prizes' | 'sync' | 'invites'>('sync');
+  const [tab, setTab] = useState<'users' | 'prizes' | 'sync' | 'invites' | 'matches'>('sync');
 
   if (!user || !isAdmin()) return null;
 
@@ -35,7 +39,7 @@ export default function AdminPage() {
       </div>
 
       <div className="flex gap-2">
-        {(['sync', 'prizes', 'users', 'invites'] as const).map((t) => (
+        {(['sync', 'prizes', 'users', 'invites', 'matches'] as const).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -43,7 +47,7 @@ export default function AdminPage() {
               tab === t ? 'bg-yellow-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'
             }`}
           >
-            {t === 'sync' ? '🔄 Sincronización' : t === 'prizes' ? '🎁 Premios' : t === 'users' ? '👥 Usuarios' : '🔑 Invitaciones'}
+            {t === 'sync' ? '🔄 Sincronización' : t === 'prizes' ? '🎁 Premios' : t === 'users' ? '👥 Usuarios' : t === 'invites' ? '🔑 Invitaciones' : '⚽ Partidos'}
           </button>
         ))}
       </div>
@@ -52,6 +56,7 @@ export default function AdminPage() {
       {tab === 'prizes' && <PrizesTab qc={qc} />}
       {tab === 'users' && <UsersTab />}
       {tab === 'invites' && <InvitesTab qc={qc} />}
+      {tab === 'matches' && <MatchesTab qc={qc} />}
     </div>
   );
 }
@@ -439,6 +444,118 @@ function UsersTab() {
   );
 }
 
+function MatchesTab({ qc }: { qc: ReturnType<typeof useQueryClient> }) {
+  const [confirmToggle, setConfirmToggle] = useState<number | null>(null);
+
+  const { data: matches = [], isLoading } = useQuery({
+    queryKey: ['matches-admin'],
+    queryFn: () => getMatches(),
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: (id: number) => toggleMatchRanking(id),
+    onSuccess: (data) => {
+      qc.setQueryData<Match[]>(['matches-admin'], (old = []) =>
+        old.map((m) => (m.id === data.id ? { ...m, countForRanking: data.countForRanking } : m))
+      );
+      setConfirmToggle(null);
+    },
+  });
+
+  const sorted = [...matches].sort(
+    (a, b) => new Date(a.matchDate).getTime() - new Date(b.matchDate).getTime()
+  );
+
+  return (
+    <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden">
+      <div className="px-5 py-3 border-b border-slate-700/50">
+        <p className="text-slate-400 text-sm">
+          Los partidos excluidos no se contabilizan en el ranking para ningún usuario.
+        </p>
+      </div>
+      {isLoading ? (
+        <div className="text-center py-10 text-slate-500">Cargando partidos...</div>
+      ) : (
+        <div className="divide-y divide-slate-700/30">
+          {sorted.map((match) => {
+            const excluded = match.countForRanking === false;
+            const isPending = toggleMutation.isPending && toggleMutation.variables === match.id;
+            return (
+              <div
+                key={match.id}
+                className={`flex items-center justify-between gap-4 px-5 py-3 transition-colors ${excluded ? 'opacity-60 bg-slate-900/20' : 'hover:bg-slate-700/10'}`}
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {match.status === 'FINISHED' || match.status === 'IN_PLAY' ? (
+                      <span className="text-white font-medium text-sm">
+                        {match.homeTeam}
+                        <span className={`mx-2 font-bold tabular-nums ${match.status === 'IN_PLAY' ? 'text-green-400' : 'text-slate-100'}`}>
+                          {match.homeScore ?? 0} - {match.awayScore ?? 0}
+                        </span>
+                        {match.awayTeam}
+                      </span>
+                    ) : (
+                      <span className="text-white font-medium text-sm">
+                        {match.homeTeam} <span className="text-slate-500">vs</span> {match.awayTeam}
+                      </span>
+                    )}
+                    <AdminMatchStatusBadge status={match.status} />
+                    {excluded && (
+                      <span className="text-xs px-2 py-0.5 rounded-full border text-orange-400 bg-orange-900/20 border-orange-700/30">
+                        Excluido del ranking
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-slate-500 text-xs">
+                      {format(new Date(match.matchDate), "d MMM · HH:mm", { locale: es })}
+                    </span>
+                    {match.group && (
+                      <span className="text-slate-600 text-xs">{formatSectionLabel(match.group)}</span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex-shrink-0">
+                  {confirmToggle === match.id ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-orange-400 text-xs">¿Confirmar?</span>
+                      <button
+                        onClick={() => toggleMutation.mutate(match.id)}
+                        disabled={isPending}
+                        className="text-xs px-2 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white transition disabled:opacity-50"
+                      >
+                        Sí
+                      </button>
+                      <button
+                        onClick={() => setConfirmToggle(null)}
+                        className="text-xs px-2 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition"
+                      >
+                        No
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmToggle(match.id)}
+                      className={`text-xs px-3 py-1.5 rounded-lg border transition ${
+                        excluded
+                          ? 'text-green-400 bg-green-900/20 border-green-700/30 hover:bg-green-900/40'
+                          : 'text-orange-400 bg-orange-900/20 border-orange-700/30 hover:bg-orange-900/40'
+                      }`}
+                    >
+                      {excluded ? 'Incluir en ranking' : 'Excluir del ranking'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function InvitesTab({ qc }: { qc: ReturnType<typeof useQueryClient> }) {
   const [copied, setCopied] = useState<number | null>(null);
   const [newAcceso, setNewAcceso] = useState({ grupos: false, eliminatoria: false });
@@ -576,5 +693,21 @@ function InvitesTab({ qc }: { qc: ReturnType<typeof useQueryClient> }) {
         </div>
       )}
     </div>
+  );
+}
+
+const ADMIN_STATUS_CFG: Record<string, { text: string; className: string }> = {
+  FINISHED:  { text: 'Finalizado', className: 'text-slate-400 bg-slate-700/30 border-slate-600/30' },
+  IN_PLAY:   { text: 'En juego',   className: 'text-green-400 bg-green-900/30 border-green-700/30' },
+  SCHEDULED: { text: 'Programado', className: 'text-blue-400 bg-blue-900/30 border-blue-700/30' },
+  POSTPONED: { text: 'Postergado', className: 'text-yellow-400 bg-yellow-900/30 border-yellow-700/30' },
+};
+
+function AdminMatchStatusBadge({ status }: { status: string }) {
+  const cfg = ADMIN_STATUS_CFG[status] ?? ADMIN_STATUS_CFG.SCHEDULED;
+  return (
+    <span className={`text-xs border rounded-full px-2 py-0.5 ${cfg.className}`}>
+      {cfg.text}
+    </span>
   );
 }

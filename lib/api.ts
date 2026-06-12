@@ -58,6 +58,9 @@ export const getMatch = (id: number) =>
 export const syncMatches = () =>
   api.post('/matches/sync').then((r) => r.data);
 
+export const toggleMatchRanking = (id: number) =>
+  api.patch<{ id: number; countForRanking: boolean }>(`/matches/${id}/toggle-ranking`).then((r) => r.data);
+
 // Bets
 export const createOrUpdateBet = (matchId: number, homeScore: number, awayScore: number) =>
   api.post<Bet>('/bets', { matchId, homeScore, awayScore }).then((r) => r.data);
