@@ -14,6 +14,7 @@ export interface Match {
   status: MatchStatus;
   stage: MatchStage;
   group: string | null;
+  countForRanking?: boolean;
 }
 
 export interface Bet {
